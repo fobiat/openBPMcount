@@ -15,12 +15,25 @@ tells you exactly how much pitch to dial in to match your other deck.
 
 No wiring required — the OLED and button are on the board. Just plug in over USB.
 
-## Controls (single button)
+## Controls (single button, three gestures)
 
-| Gesture | Action |
+The one onboard button reads three press lengths:
+
+| Gesture | Length |
 |---------|--------|
-| **Short press** | Tap a beat for the **active** deck |
-| **Long press** (≥0.6s) | Lock the active deck's BPM and switch to the other deck (A ⇄ B) |
+| **Short** | < 0.6 s |
+| **Long** | 0.6 – 1.6 s |
+| **Hold** | ≥ 1.6 s |
+
+What they do depends on the mode:
+
+| | **MATCH mode** (live mixing) | **LIBRARY mode** (stored BPMs) |
+|--|--|--|
+| **Short** | Tap a beat for the active deck | Move cursor to next slot |
+| **Long** | Lock the deck & switch A ⇄ B | Store the live BPM into the slot* |
+| **Hold** | Go to **LIBRARY** | Return to **MATCH** |
+
+\* Storing with no live reading clears the slot.
 
 ## How to beatmatch with it
 
@@ -29,7 +42,7 @@ No wiring required — the OLED and button are on the board. Just plug in over U
 2. **Long-press** to lock Deck A and switch to **Deck B**.
 3. Tap along with the record you're cueing on Deck B.
 4. The bottom line shows the **pitch %** to dial into the active deck plus a
-   **SPEED UP / SLOW DN / MATCHED** nudge, relative to the other deck.
+   **SPEED UP / SLOW DN / MATCH** nudge, relative to the other deck.
 5. Long-press any time to hop back to a deck and re-tap it.
 
 ```
@@ -38,13 +51,35 @@ No wiring required — the OLED and button are on the board. Just plug in over U
 │                          │
 │        126.8             │
 │ ──────────────────────── │
-│ A:128.3  B:126.8         │
-│ SPEED UP +1.18%          │
+│ A:128.3 B:126.8          │
+│ SPEED UP +1.2%           │
 └──────────────────────────┘
 ```
 
-The pitch figure is `((other / active) - 1) × 100` — i.e. how much to move the
+The pitch figure is `((target / active) - 1) × 100` — i.e. how much to move the
 active deck's pitch fader so it matches the other deck.
+
+## Memory slots (crate digging)
+
+Three slots — **A / B / C** — live in **LIBRARY mode** (Hold to enter). Measure a
+record in MATCH mode, Hold into LIBRARY, cursor to a slot, and Long-press to store
+it. Slots are written to the ESP32's flash (NVS), so **they survive power-off** —
+measure a stack of records at the shop and they're still there next time you boot.
+
+## Smart features
+
+- **Octave-aware matching (half / double time).** A record tapped at 64 BPM and one
+  at 128 BPM are the same tempo an octave apart. The match readout automatically
+  picks whichever of the other deck's tempo, ×2, or ½ needs the least pitch change,
+  and tags it `x2` or `1/2` so you know what it did.
+- **Turntable pitch-range warning.** If matching the two decks would need more than
+  ±8 % pitch (beyond a standard turntable's range), the line shows `!RANGE` instead
+  of a nudge — a cue that they won't mix straight, or that it's really a half/double
+  relationship.
+- **Single-record identify.** With only one deck measured, the footer shows that
+  record's `x2` and `half` tempos to help you place ambiguous BPMs.
+- **OLED sleep.** After 2 minutes idle the display blanks (saves the battery on the
+  board's LiPo connector and prevents burn-in); any button press wakes it.
 
 ## How the BPM is measured
 
@@ -69,6 +104,6 @@ is [olikraus/U8g2](https://github.com/olikraus/u8g2).
 
 ## Ideas for future versions
 
-- Multiple stored BPM slots (A/B/C) for crate digging
+- Load a stored slot back onto a deck to match against it directly
 - Automatic BPM detection via a microphone module (MAX9814 / INMP441)
-- Half/double-time detection for tracks tapped an octave off
+- Configurable pitch range (±8 % / ±16 %) for different turntables
