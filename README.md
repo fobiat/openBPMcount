@@ -198,6 +198,21 @@ pio device monitor           # optional, 115200
 
 `tft` is the default env, so a bare `pio run -t upload` builds it.
 
+### Tests
+
+The BPM engine has no Arduino dependency — `Deck` takes the current time as a
+parameter rather than calling `millis()` — so a whole tapping session can be
+simulated and the tempo maths tested on a desktop, no board required:
+
+```bash
+pio test -e native      # 30 unit tests
+```
+
+They cover tap averaging, outlier rejection, idle reset, jitter, beat prediction,
+octave matching, pitch range and the drift timer. CI runs them before it builds any
+firmware. They earn their keep — they caught a real bug where a single fumbled tap
+dropped a steady 120 BPM readout to ~43.
+
 Prebuilt `firmware.bin` for each board is attached to every
 [release](https://github.com/fobiat/openBPM/releases), and CI builds all three
 environments on each push.
@@ -210,13 +225,15 @@ the build stays reproducible.
 
 ```
 src/
-  app.h / app.cpp        BPM engine, beatmatch maths, persisted library
+  app.h / app.cpp        BPM engine + beatmatch maths (no Arduino dependency)
+  library.cpp            persisted BPM slots (NVS/flash)
   display.h              display interface + UiState (what a screen renders)
   display_oled.cpp       0.96" SSD1306 front-end   (env: oled)
   display_tft.cpp        1.14" ST7789 front-end    (env: tft)
   webui.h / webui.cpp    WiFi AP + phone-facing library page
   main.cpp               buttons, modes, main loop
   pinscan.cpp            standalone button pin scanner (env: pinscan)
+test/test_bpm/           desktop unit tests          (env: native)
 docs/
   HARDWARE.md            parts list, wiring, GPIO reference, enclosure
 ```
@@ -224,9 +241,9 @@ docs/
 Each display front-end lays the screen out to suit its own size and colour depth;
 the app logic never knows which screen it's driving.
 
-The beatmatch maths in `app.cpp` — tap averaging, octave matching, drift, pitch
-percentages — has no dependency on a screen or a button, so it's the easiest place to
-contribute without hardware.
+`app.cpp` is deliberately platform-free so it can be tested on a desktop; everything
+needing the platform is quarantined in `library.cpp`. That makes the beatmatch maths
+the easiest place to contribute without owning any hardware.
 
 ## Enclosure
 

@@ -32,7 +32,23 @@ aren't looking at.
 
 Most of the interesting logic — the tap-tempo averaging, octave-aware matching, drift
 timer, pitch percentages — lives in [`src/app.cpp`](src/app.cpp) and has no dependency
-on a screen or a button. It's the easiest place to contribute confidently.
+on a screen, a button, or Arduino at all. `Deck` takes the current time as a parameter
+instead of calling `millis()`, so a whole tapping session can be simulated
+deterministically:
+
+```bash
+pio test -e native
+```
+
+**Please add a test for any change to the BPM engine, and run the suite before you
+open a PR.** CI runs it ahead of the firmware builds. It is not ceremony — the suite
+caught a real bug on its first run, where a single fumbled tap dropped a steady
+120 BPM readout to ~43.
+
+Anything needing the platform (NVS persistence) lives in
+[`src/library.cpp`](src/library.cpp), which the native build excludes. Keep it that
+way: if you find yourself wanting `millis()` or `Preferences` in `app.cpp`, pass the
+value in instead.
 
 If you *do* have hardware, say so in the PR and describe what you actually observed.
 "Compiles" and "works on a deck" are very different claims, and we'd rather know which

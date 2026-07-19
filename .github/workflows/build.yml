@@ -8,7 +8,33 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Desktop unit tests for the BPM engine. Runs first and gates the firmware
+  # builds — there's no point shipping binaries whose tempo maths is broken.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Unit tests
+        run: pio test -e native
+
   firmware:
+    needs: test
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
