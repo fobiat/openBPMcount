@@ -1,4 +1,4 @@
-// Core state and beatmatch maths for openBPMcount.
+// Core state and beatmatch maths for openBPM.
 // Display-agnostic: both the OLED and TFT front-ends render from this.
 #pragma once
 

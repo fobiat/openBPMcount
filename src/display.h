@@ -1,4 +1,4 @@
-// Display abstraction for openBPMcount.
+// Display abstraction for openBPM.
 //
 // The two front-ends (display_oled.cpp for the 0.96" SSD1306, display_tft.cpp
 // for the 1.14" ST7789) each implement this same interface and lay the screen

@@ -184,7 +184,7 @@ void begin() {
 void splash() {
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_7x14B_tf);
-  u8g2.drawStr(6, 26, "openBPMcount");
+  u8g2.drawStr(6, 26, "openBPM");
   u8g2.setFont(u8g2_font_6x10_tf);
   u8g2.drawStr(2, 44, "tap the beat...");
   u8g2.sendBuffer();

@@ -7,7 +7,7 @@
 
 namespace WebUI {
 
-static const char* AP_SSID = "openBPMcount";
+static const char* AP_SSID = "openBPM";
 static const char* AP_PASS = "beatmatch";   // >=8 chars required for WPA2
 
 static WebServer server(80);
@@ -40,7 +40,7 @@ static void handleRoot() {
   h.reserve(3000);
   h += F("<!doctype html><html><head><meta charset=utf-8>"
          "<meta name=viewport content='width=device-width,initial-scale=1'>"
-         "<title>openBPMcount</title><style>"
+         "<title>openBPM</title><style>"
          "body{background:#111;color:#eee;font-family:system-ui,sans-serif;margin:0;padding:16px}"
          "h1{font-size:20px;margin:0 0 4px}.live{color:#4ade80;font-size:15px;margin-bottom:16px}"
          "table{width:100%;border-collapse:collapse}"
@@ -50,7 +50,7 @@ static void handleRoot() {
          "input{background:#222;border:1px solid #444;color:#eee;padding:6px;border-radius:4px;width:100%;font-size:15px}"
          "button{background:#2563eb;border:0;color:#fff;padding:7px 12px;border-radius:4px;font-size:14px}"
          "a{color:#60a5fa}form{display:flex;gap:6px}"
-         "</style></head><body><h1>openBPMcount</h1>");
+         "</style></head><body><h1>openBPM</h1>");
   h += "<div class=live>live: " + bpmText(liveBpm) + " BPM</div>";
   h += F("<table><tr><th>#</th><th>BPM</th><th>Name</th><th></th></tr>");
 

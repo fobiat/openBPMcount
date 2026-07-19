@@ -1,4 +1,7 @@
-# openBPMcount
+# openBPM
+
+[![build](https://github.com/fobiat/openBPM/actions/workflows/build.yml/badge.svg)](https://github.com/fobiat/openBPM/actions/workflows/build.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A tap-tempo **BPM counter and beatmatch assistant** for vinyl DJing, running on an
 **ideaspark ESP32-WROOM-32**. Tap a button in time with a record and it reads out
@@ -14,16 +17,25 @@ Supports **both** ideaspark display boards from one codebase.
 | Board | ideaspark ESP32-WROOM-32 |
 | Display *(either)* | 0.96" SSD1306 OLED 128×64 I2C `0x3C` (SDA=21, SCL=22) — build env `oled` |
 | | 1.14" ST7789 TFT 240×135 SPI colour — build env `tft` |
-| Buttons | 3 × momentary — **TAP** GPIO27, **SWAP** GPIO26, **MODE** GPIO25 |
+| Buttons | Onboard buttons **and/or** external momentary buttons — see below |
 
 The colour TFT is the better choice: colour carries the match state, and you can
 read green/amber/red across a dark booth far faster than you can read digits.
 
-### Wiring
+### Buttons
 
-The display is already on the board. Wire three momentary buttons, each between its
-GPIO and **GND** — no resistors needed (the firmware enables internal pull-ups, so
-each pin idles HIGH and reads LOW when pressed):
+Every action accepts **several pins at once**, so the board's own buttons and any
+external buttons you wire both work — press whichever is to hand. The pin lists are
+at the top of [`src/main.cpp`](src/main.cpp):
+
+```cpp
+static const uint8_t TAP_PINS[]  = {0, 27};   // onboard BOOT, external
+static const uint8_t SWAP_PINS[] = {26};      // external
+static const uint8_t MODE_PINS[] = {25};      // external
+```
+
+External buttons go between the GPIO and **GND** — no resistors needed, the firmware
+enables internal pull-ups so each pin idles HIGH and reads LOW when pressed:
 
 ```
 GPIO27 ──[ TAP  ]── GND
@@ -31,9 +43,32 @@ GPIO26 ──[ SWAP ]── GND
 GPIO25 ──[ MODE ]── GND
 ```
 
-Pins are at the top of [`src/main.cpp`](src/main.cpp). Avoid GPIO 6–11 (flash),
-12 (boot strap), 21/22 (OLED I2C), 34–39 (no internal pull-up). On the TFT board
-GPIO 2/4/15/18/23/32 are taken by the display.
+Avoid GPIO 6–11 (flash), 12 (boot strap), 21/22 (OLED I2C) and 34–39 (no internal
+pull-up). On the TFT board GPIO 2/4/15/18/23/32 belong to the display.
+
+> **GPIO0 is the onboard BOOT button.** It's also a boot strapping pin, so holding it
+> while the board powers up enters the bootloader instead of running the firmware.
+> That's normal — just don't hold it through a reset.
+
+#### Finding your board's onboard button pins
+
+Board revisions differ, so measure rather than guess. Flash the scanner, open the
+monitor, and press each button:
+
+```bash
+pio run -e pinscan -t upload
+pio device monitor
+```
+
+It prints the GPIO behind each press:
+
+```
+* PRESSED   GPIO0
+  released  GPIO0
+```
+
+Put those numbers into the pin lists above and reflash. Pins that never settle are
+floating — ignore them.
 
 **Tip:** make the TAP button physically distinct — bigger, or a different coloured
 cap — so you find it by feel in the dark without looking.
@@ -104,7 +139,7 @@ own access point — no router needed, works in a shop or a booth:
 
 | | |
 |--|--|
-| SSID | `openBPMcount` |
+| SSID | `openBPM` |
 | Password | `beatmatch` |
 | URL | `http://192.168.4.1` |
 
@@ -118,10 +153,17 @@ With [PlatformIO](https://platformio.org/) (VS Code extension or CLI), pick the 
 that matches your board:
 
 ```bash
+pio run -e tft  -t upload    # 1.14" ST7789 colour  (default)
 pio run -e oled -t upload    # 0.96" SSD1306 mono
-pio run -e tft  -t upload    # 1.14" ST7789 colour
+pio run -e pinscan -t upload # button pin scanner (diagnostic)
 pio device monitor           # optional, 115200
 ```
+
+`tft` is the default env, so a bare `pio run -t upload` builds it.
+
+Prebuilt `firmware.bin` for each board is attached to every
+[release](https://github.com/fobiat/openBPM/releases), and CI builds all three
+environments on each push.
 
 `TFT_eSPI` is configured entirely from `build_flags` in
 [`platformio.ini`](platformio.ini) — the library's `User_Setup.h` is never edited, so
@@ -137,6 +179,7 @@ src/
   display_tft.cpp        1.14" ST7789 front-end    (env: tft)
   webui.h / webui.cpp    WiFi AP + phone-facing library page
   main.cpp               buttons, modes, main loop
+  pinscan.cpp            standalone button pin scanner (env: pinscan)
 ```
 
 Each display front-end lays the screen out to suit its own size and colour depth;
@@ -157,3 +200,7 @@ opening it.
 - Load a stored slot back onto a deck to match against it directly
 - Battery gauge from the LiPo connector, and deep sleep on long idle
 - Configurable pitch range (±8 % / ±16 %) for different turntables
+
+## Licence
+
+[MIT](LICENSE) © Ohmic Labs

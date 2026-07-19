@@ -225,7 +225,7 @@ void splash() {
   fb.fillSprite(TFT_BLACK);
   fb.setTextDatum(MC_DATUM);
   fb.setTextColor(TFT_CYAN, TFT_BLACK);
-  fb.drawString("openBPMcount", W / 2, 50, 4);
+  fb.drawString("openBPM", W / 2, 50, 4);
   fb.setTextColor(TFT_WHITE, TFT_BLACK);
   fb.drawString("tap the beat...", W / 2, 84, 2);
   fb.pushSprite(0, 0);
