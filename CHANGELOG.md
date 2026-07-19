@@ -7,6 +7,41 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-07-19
+
+### Fixed
+
+- **A single fumbled tap no longer wrecks the reading.** An off-beat tap cleared the
+  averaging window and was then stored as its only sample, so one missed beat at a
+  steady 120 BPM slammed the readout to ~43. The outlier is now discarded as well,
+  and the previous reading stands while the window refills — two clean taps
+  re-establish the tempo. Found by the new test suite on its first run.
+- Clearing a slot from the device (storing with no live reading) zeroed the BPM but
+  left the record's name behind, so an empty slot kept a stale name.
+- The OLED's tap-jitter readout built its ± sign from a raw `0xB1` byte; a font
+  without `U+00B1` would silently drop it. Uses ASCII `+/-` now, matching the TFT.
+- A failed TFT sprite allocation left a silently black screen, indistinguishable from
+  a wiring fault. It now reports the failure on serial and on the panel.
+- The CSV download was still named `openbpmcount.csv` after the rename.
+
+### Added
+
+- **Configurable turntable pitch range.** Was hardcoded to ±8 %, which is right for a
+  Technics 1210 but wrong for the many decks that do ±16 or wider — those were being
+  told perfectly reachable matches were `OUT OF RANGE`. Set it from the WiFi page;
+  persisted to flash. The pitch bar scales with it.
+- **A desktop unit-test suite** — 34 Unity tests over tempo averaging, outlier
+  rejection, idle reset, jitter, beat prediction, octave matching, pitch range and the
+  drift timer. Run with `pio test -e native`; no board needed.
+- CI runs the tests as a gate before building any firmware.
+
+### Changed
+
+- `app.h`/`app.cpp` are now free of any Arduino dependency, so the BPM engine builds
+  and runs on a desktop. Platform-specific persistence moved to `library.cpp`.
+- ESP32 settings moved from `[env]` to an `[esp32]` section that the device
+  environments extend, so the native test env doesn't inherit a board.
+
 ## [1.1.0] — 2026-07-19
 
 ### Added
@@ -52,6 +87,7 @@ First tagged release.
 - `pinscan` diagnostic environment for identifying button GPIOs by measurement
 - MIT licence, and a GitHub Actions matrix build across all three environments
 
-[Unreleased]: https://github.com/fobiat/openBPM/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/fobiat/openBPM/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/fobiat/openBPM/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/fobiat/openBPM/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/fobiat/openBPM/releases/tag/v1.0.0

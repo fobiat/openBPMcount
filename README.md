@@ -162,10 +162,15 @@ cap — so you find it by feel in the dark without looking.
 - **Octave-aware matching.** A record at 64 BPM and one at 128 BPM are the same tempo
   an octave apart. The match picks whichever of the other deck's tempo, ×2, or ½ needs
   the least pitch change, and tags it `x2` or `1/2` so you know what it did.
-- **Pitch-range warning.** If matching would need more than ±8 % (beyond a standard
-  turntable), it shows `OUT OF RANGE` — they won't mix straight.
-- **Outlier rejection.** A missed or double tap restarts the averaging window instead
-  of poisoning it, and a 3-second pause starts a fresh measurement for the next record.
+- **Pitch-range warning.** If matching would need more pitch than your decks actually
+  have, it shows `OUT OF RANGE` — they won't mix straight. Defaults to ±8 % (a
+  Technics 1210) and is **configurable from the WiFi page**; set it to 16 for most
+  Pioneers. The pitch bar scales with it, so full deflection always means the end of
+  your fader.
+- **Outlier rejection.** A missed or double tap is discarded and restarts the
+  averaging window, leaving the previous reading standing rather than lurching to a
+  wrong number; two clean taps re-establish the tempo. A 3-second pause starts a fresh
+  measurement for the next record.
 - **Screen sleep.** Blanks after 2 minutes idle (battery/burn-in); any press wakes it.
   Never sleeps while the WiFi AP is up.
 
@@ -180,8 +185,8 @@ own access point — no router needed, works in a shop or a booth:
 | Password | `beatmatch` |
 | URL | `http://192.168.4.1` |
 
-From a phone you can **name each of the 8 slots**, clear them, and **download the
-whole library as CSV**. Names and BPMs are stored in the ESP32's flash (NVS), so they
+From a phone you can **name each of the 8 slots**, clear them, **set your decks'
+pitch range**, and **download the whole library as CSV**. Names and BPMs are stored in the ESP32's flash (NVS), so they
 survive power-off. Turn the AP off when you're done — it's the biggest power draw.
 
 ## Build & flash
@@ -259,7 +264,6 @@ opening it.
   endgame: no tapping at all
 - Load a stored slot back onto a deck to match against it directly
 - Battery gauge from the LiPo connector, and deep sleep on long idle
-- Configurable pitch range (±8 % / ±16 %) for different turntables
 
 Fancy building one of these? See [CONTRIBUTING.md](CONTRIBUTING.md).
 
