@@ -1,6 +1,5 @@
 #include "app.h"
 
-#include <Preferences.h>
 #include <math.h>
 
 // ---------------------------------------------------------------------------
@@ -30,18 +29,27 @@ void Deck::tap(uint32_t now) {
 
   if (lastTapMs != 0) {
     uint32_t interval = now - lastTapMs;
+    bool usable = interval > 100 && interval < 3000; // 20..600 BPM sanity band
 
-    // Outlier rejection: a wildly off tap (missed/double beat) restarts the
-    // window instead of poisoning the average.
+    // Outlier rejection: a wildly off tap (a missed or double beat) restarts
+    // the averaging window AND is itself discarded. Storing it would be worse
+    // than useless — one fumbled tap at 120 BPM would otherwise become the
+    // only sample in a fresh window and slam the readout to ~43 BPM.
+    //
+    // The previous bpm is deliberately left standing while the window refills,
+    // so a single mis-tap doesn't make the display jump to nonsense. Two clean
+    // taps re-establish the tempo, which is also what you want when you have
+    // genuinely moved on to a record at a different speed.
     if (count > 0) {
       uint32_t avg = averageInterval();
       if (interval > avg * 2 || interval * 2 < avg) {
         count = 0;
         head = 0;
+        usable = false;
       }
     }
 
-    if (interval > 100 && interval < 3000) { // 20..600 BPM sanity band
+    if (usable) {
       intervals[head] = interval;
       head = (head + 1) % MAX_INTERVALS;
       if (count < MAX_INTERVALS) count++;
@@ -128,55 +136,3 @@ MatchInfo computeMatch(float activeBpm, float otherBpm) {
   m.driftSec = (diff > 0.001f) ? (60.0f / diff) : -1.0f;
   return m;
 }
-
-// ---------------------------------------------------------------------------
-// Library
-// ---------------------------------------------------------------------------
-namespace Lib {
-
-Slot slots[NUM_SLOTS];
-static Preferences prefs;
-
-static void persist(uint8_t i) {
-  char key[6];
-  snprintf(key, sizeof(key), "s%u", i);
-  prefs.putFloat(key, slots[i].bpm);
-  snprintf(key, sizeof(key), "n%u", i);
-  prefs.putString(key, slots[i].name);
-}
-
-void begin() {
-  prefs.begin("openbpm", false);
-  for (uint8_t i = 0; i < NUM_SLOTS; i++) {
-    char key[6];
-    snprintf(key, sizeof(key), "s%u", i);
-    slots[i].bpm = prefs.getFloat(key, 0.0f);
-
-    snprintf(key, sizeof(key), "n%u", i);
-    String n = prefs.getString(key, "");
-    strncpy(slots[i].name, n.c_str(), NAME_LEN - 1);
-    slots[i].name[NAME_LEN - 1] = '\0';
-  }
-}
-
-void store(uint8_t i, float bpm) {
-  if (i >= NUM_SLOTS) return;
-  slots[i].bpm = bpm;
-  persist(i);
-}
-
-void setName(uint8_t i, const char* name) {
-  if (i >= NUM_SLOTS || name == NULL) return;
-  strncpy(slots[i].name, name, NAME_LEN - 1);
-  slots[i].name[NAME_LEN - 1] = '\0';
-  persist(i);
-}
-
-void clear(uint8_t i) {
-  if (i >= NUM_SLOTS) return;
-  slots[i].bpm = 0.0f;
-  slots[i].name[0] = '\0';
-  persist(i);
-}
-
-} // namespace Lib

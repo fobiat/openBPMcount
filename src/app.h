@@ -1,8 +1,16 @@
 // Core state and beatmatch maths for openBPM.
-// Display-agnostic: both the OLED and TFT front-ends render from this.
+//
+// Display-agnostic: both the OLED and TFT front-ends render from this. It is
+// also deliberately free of any Arduino dependency — Deck takes the current
+// time as a parameter rather than calling millis() — so the whole BPM engine
+// builds and runs on a desktop under `pio test -e native`.
+//
+// The one part that does need the platform (Lib, which persists to flash) lives
+// in library.cpp and is excluded from the native build.
 #pragma once
 
-#include <Arduino.h>
+#include <stddef.h>
+#include <stdint.h>
 
 // ---------------------------------------------------------------------------
 // Tunables
