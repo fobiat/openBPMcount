@@ -1,19 +1,27 @@
 # openBPMcount
 
 A tap-tempo **BPM counter and beatmatch assistant** for vinyl DJing, running on an
-**ideaspark ESP32-WROOM-32** with its integrated 0.96" OLED. Tap the onboard button
-in time with a record and it reads out the BPM in big, booth-legible digits — then
-tells you exactly how much pitch to dial in to match your other deck.
+**ideaspark ESP32-WROOM-32**. Tap a button in time with a record and it reads out
+the BPM in big, booth-legible digits — then tells you exactly how much pitch to dial
+in to match your other deck, and how long you've got before they drift apart.
+
+Supports **both** ideaspark display boards from one codebase.
 
 ## Hardware
 
 | Part | Detail |
 |------|--------|
-| Board | ideaspark ESP32-WROOM-32 (integrated OLED variant) |
-| Display | 0.96" SSD1306 OLED, 128×64, I2C @ `0x3C` (SDA=GPIO21, SCL=GPIO22) |
-| Buttons | 3 × momentary push button — **TAP** GPIO27, **SWAP** GPIO26, **MODE** GPIO25 |
+| Board | ideaspark ESP32-WROOM-32 |
+| Display *(either)* | 0.96" SSD1306 OLED 128×64 I2C `0x3C` (SDA=21, SCL=22) — build env `oled` |
+| | 1.14" ST7789 TFT 240×135 SPI colour — build env `tft` |
+| Buttons | 3 × momentary — **TAP** GPIO27, **SWAP** GPIO26, **MODE** GPIO25 |
 
-The OLED is already on the board. Wire three momentary buttons, each between its
+The colour TFT is the better choice: colour carries the match state, and you can
+read green/amber/red across a dark booth far faster than you can read digits.
+
+### Wiring
+
+The display is already on the board. Wire three momentary buttons, each between its
 GPIO and **GND** — no resistors needed (the firmware enables internal pull-ups, so
 each pin idles HIGH and reads LOW when pressed):
 
@@ -23,92 +31,129 @@ GPIO26 ──[ SWAP ]── GND
 GPIO25 ──[ MODE ]── GND
 ```
 
-Pins are set at the top of [`src/main.cpp`](src/main.cpp) (`PIN_TAP`, `PIN_SWAP`,
-`PIN_MODE`) — change them there if you wire to different GPIOs. Avoid GPIO 6–11
-(flash), 12 (boot strap), 21/22 (OLED) and 34–39 (no internal pull-up).
+Pins are at the top of [`src/main.cpp`](src/main.cpp). Avoid GPIO 6–11 (flash),
+12 (boot strap), 21/22 (OLED I2C), 34–39 (no internal pull-up). On the TFT board
+GPIO 2/4/15/18/23/32 are taken by the display.
+
+**Tip:** make the TAP button physically distinct — bigger, or a different coloured
+cap — so you find it by feel in the dark without looking.
 
 ## Controls
 
-Each button does one thing; what it does depends on the mode:
+**MODE** cycles through three screens: **MATCH → LIBRARY → WIFI → MATCH**.
 
-| Button | **MATCH mode** (live mixing) | **LIBRARY mode** (stored BPMs) |
-|--------|------------------------------|--------------------------------|
-| **TAP**  | Tap a beat for the active deck | Move cursor to next slot |
-| **SWAP** | Lock the deck & switch A ⇄ B    | Store the live BPM into the slot* |
-| **MODE** | Go to **LIBRARY**               | Return to **MATCH** |
+| Screen | **TAP** | **SWAP** |
+|--------|---------|----------|
+| **MATCH** | Tap a beat for the active deck | Lock the deck & switch A ⇄ B |
+| **LIBRARY** | Move cursor to next slot | Store live BPM into slot* |
+| **WIFI** | Toggle the access point | — |
 
 \* Storing with no live reading clears the slot.
 
 ## How to beatmatch with it
 
 1. Power on — **Deck A** is active. **TAP** along with the record that's playing.
-   The big number settles on the BPM after a few taps.
 2. Press **SWAP** to lock Deck A and switch to **Deck B**.
-3. **TAP** along with the record you're cueing on Deck B.
-4. The bottom line shows the **pitch %** to dial into the active deck plus a
-   **SPEED UP / SLOW DN / MATCH** nudge, relative to the other deck.
-5. Press **SWAP** any time to hop back to a deck and re-tap it.
+3. **TAP** along with the record you're cueing.
+4. Read the pitch % and nudge, dial it into the deck, and watch the bar centre.
 
 ```
-┌──────────────────────────┐
-│ DECK B          TAPS 7   │
-│                          │
-│        126.8             │
-│ ──────────────────────── │
-│ A:128.3 B:126.8          │
-│ SPEED UP +1.2%           │
-└──────────────────────────┘
+┌────────────────────────────────┐
+│ DECK B              TAPS 7  ●  │
+│                                │
+│           126.8                │
+│                                │
+│  ├────────────█───┼─────────┤  │   pitch bar, centre = matched
+│                                │
+│  A 128.3   B 126.8    +/-3ms   │
+│  SPEED UP +1.18%  drift 40s    │
+└────────────────────────────────┘
 ```
 
-The pitch figure is `((target / active) - 1) × 100` — i.e. how much to move the
-active deck's pitch fader so it matches the other deck.
+## What's on screen
 
-## Memory slots (crate digging)
+- **Pitch %** — `((target / active) - 1) × 100`, i.e. how far to move the active
+  deck's pitch fader. Colour-coded green / amber / red on the TFT.
+- **Pitch bar** — glanceable deflection from centre; centre means matched.
+- **Drift timer** — *"drift 40s"* is how long until the two decks slip a **full beat**
+  apart at the current error (`60 / ΔBPM` seconds). It answers the question you
+  actually care about mid-mix: how long before I need to nudge? 0.5 BPM out gives you
+  two minutes; 0.1 BPM out gives you ten.
+- **±ms** — the spread of your tap intervals. Low means you're tapping consistently,
+  so trust the number. Turns green once the reading is solid.
+- **Beat dot** — flashes on every predicted beat once a tempo is locked: a visual
+  metronome you can check against the record.
+- **`x2` / `1/2`** — the match was made an octave apart (see below).
 
-Three slots — **A / B / C** — live in **LIBRARY mode** (press **MODE** to enter).
-Measure a record in MATCH mode, press **MODE**, use **TAP** to move the cursor to a
-slot, and **SWAP** to store it. Slots are written to the ESP32's flash (NVS), so
-**they survive power-off** —
-measure a stack of records at the shop and they're still there next time you boot.
+## Smart behaviour
 
-## Smart features
+- **Octave-aware matching.** A record at 64 BPM and one at 128 BPM are the same tempo
+  an octave apart. The match picks whichever of the other deck's tempo, ×2, or ½ needs
+  the least pitch change, and tags it `x2` or `1/2` so you know what it did.
+- **Pitch-range warning.** If matching would need more than ±8 % (beyond a standard
+  turntable), it shows `OUT OF RANGE` — they won't mix straight.
+- **Outlier rejection.** A missed or double tap restarts the averaging window instead
+  of poisoning it, and a 3-second pause starts a fresh measurement for the next record.
+- **Screen sleep.** Blanks after 2 minutes idle (battery/burn-in); any press wakes it.
+  Never sleeps while the WiFi AP is up.
 
-- **Octave-aware matching (half / double time).** A record tapped at 64 BPM and one
-  at 128 BPM are the same tempo an octave apart. The match readout automatically
-  picks whichever of the other deck's tempo, ×2, or ½ needs the least pitch change,
-  and tags it `x2` or `1/2` so you know what it did.
-- **Turntable pitch-range warning.** If matching the two decks would need more than
-  ±8 % pitch (beyond a standard turntable's range), the line shows `!RANGE` instead
-  of a nudge — a cue that they won't mix straight, or that it's really a half/double
-  relationship.
-- **Single-record identify.** With only one deck measured, the footer shows that
-  record's `x2` and `half` tempos to help you place ambiguous BPMs.
-- **OLED sleep.** After 2 minutes idle the display blanks (saves the battery on the
-  board's LiPo connector and prevents burn-in); any button press wakes it.
+## WiFi library
 
-## How the BPM is measured
+Three buttons can't type a record name, so the **WIFI** screen brings up the ESP32's
+own access point — no router needed, works in a shop or a booth:
 
-Each tap records the interval since the previous one. It keeps a rolling window of
-the last 8 intervals and averages them (`BPM = 60000 / avg_interval_ms`), which is far
-more stable than timing a single pair of taps. Wildly off-beat taps (a missed or
-double beat) are rejected instead of corrupting the average, and a pause of more than
-3 seconds starts a fresh measurement so you can move straight to the next record.
+| | |
+|--|--|
+| SSID | `openBPMcount` |
+| Password | `beatmatch` |
+| URL | `http://192.168.4.1` |
 
-## Build & flash (PlatformIO)
+From a phone you can **name each of the 8 slots**, clear them, and **download the
+whole library as CSV**. Names and BPMs are stored in the ESP32's flash (NVS), so they
+survive power-off. Turn the AP off when you're done — it's the biggest power draw.
 
-With [PlatformIO](https://platformio.org/) (VS Code extension or CLI):
+## Build & flash
+
+With [PlatformIO](https://platformio.org/) (VS Code extension or CLI), pick the env
+that matches your board:
 
 ```bash
-pio run                 # compile
-pio run --target upload # flash over USB
-pio device monitor      # optional serial monitor @ 115200
+pio run -e oled -t upload    # 0.96" SSD1306 mono
+pio run -e tft  -t upload    # 1.14" ST7789 colour
+pio device monitor           # optional, 115200
 ```
 
-Everything is configured in [`platformio.ini`](platformio.ini); the only dependency
-is [olikraus/U8g2](https://github.com/olikraus/u8g2).
+`TFT_eSPI` is configured entirely from `build_flags` in
+[`platformio.ini`](platformio.ini) — the library's `User_Setup.h` is never edited, so
+the build stays reproducible.
+
+## Layout
+
+```
+src/
+  app.h / app.cpp        BPM engine, beatmatch maths, persisted library
+  display.h              display interface + UiState (what a screen renders)
+  display_oled.cpp       0.96" SSD1306 front-end   (env: oled)
+  display_tft.cpp        1.14" ST7789 front-end    (env: tft)
+  webui.h / webui.cpp    WiFi AP + phone-facing library page
+  main.cpp               buttons, modes, main loop
+```
+
+Each display front-end lays the screen out to suit its own size and colour depth;
+the app logic never knows which screen it's driving.
+
+## Enclosure
+
+Fits a **Hammond 1591XXLBK** (87 × 57 × 39 mm) nicely — roughly stompbox sized.
+The board (~55 × 28 mm) leaves room for three 12 mm panel-mount buttons in a row
+(~48 mm total) and a LiPo underneath. Mount the board to the lid, cut a window for
+the screen, and leave a side hole for USB so you can charge and reflash without
+opening it.
 
 ## Ideas for future versions
 
+- Automatic BPM detection from a microphone module (MAX9814 / INMP441) — the real
+  endgame: no tapping at all
 - Load a stored slot back onto a deck to match against it directly
-- Automatic BPM detection via a microphone module (MAX9814 / INMP441)
+- Battery gauge from the LiPo connector, and deep sleep on long idle
 - Configurable pitch range (±8 % / ±16 %) for different turntables
